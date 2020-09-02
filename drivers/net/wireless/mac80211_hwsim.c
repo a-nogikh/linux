@@ -3505,6 +3505,10 @@ static int hwsim_cloned_frame_received_nl(struct sk_buff *skb_2,
 	/* Copy the data */
 	skb_put_data(skb, frame_data, frame_data_len);
 
+#ifdef CONFIG_KCOV
+	skb->kcov_handle = kcov_common_handle();
+#endif
+
 	data2 = get_hwsim_data_ref_from_addr(dst);
 	if (!data2)
 		goto out;

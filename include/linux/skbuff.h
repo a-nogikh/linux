@@ -786,6 +786,10 @@ struct sk_buff {
 #ifdef CONFIG_SKB_EXTENSIONS
 	__u8			active_extensions;
 #endif
+	/* TODO: not sure if it should be in headers that are copied */
+#ifdef CONFIG_KCOV
+	u64 kcov_handle;
+#endif
 	/* fields enclosed in headers_start/headers_end are copied
 	 * using a single memcpy() in __copy_skb_header()
 	 */
