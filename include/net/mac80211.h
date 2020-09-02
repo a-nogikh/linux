@@ -2544,6 +2544,9 @@ struct ieee80211_hw {
 	u8 tx_sk_pacing_shift;
 	u8 weight_multiplier;
 	u32 max_mtu;
+#ifdef CONFIG_KCOV
+	u64 kcov_handle;
+#endif
 };
 
 static inline bool _ieee80211_hw_check(struct ieee80211_hw *hw,

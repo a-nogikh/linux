@@ -227,6 +227,13 @@ static void ieee80211_tasklet_handler(unsigned long data)
 
 	while ((skb = skb_dequeue(&local->skb_queue)) ||
 	       (skb = skb_dequeue(&local->skb_queue_unreliable))) {
+		int kcov_handle = 0;
+#ifdef CONFIG_KCOV
+		kcov_handle = local->hw.kcov_handle;
+#endif
+		if (kcov_handle)
+			kcov_remote_start_common(kcov_handle);
+
 		switch (skb->pkt_type) {
 		case IEEE80211_RX_MSG:
 			/* Clear skb->pkt_type in order to not confuse kernel
@@ -244,6 +251,8 @@ static void ieee80211_tasklet_handler(unsigned long data)
 			dev_kfree_skb(skb);
 			break;
 		}
+		if (kcov_handle)
+			kcov_remote_stop();
 	}
 }
 

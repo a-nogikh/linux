@@ -36,6 +36,7 @@
 #include <linux/virtio.h>
 #include <linux/virtio_ids.h>
 #include <linux/virtio_config.h>
+#include <linux/kcov.h>
 #include "mac80211_hwsim.h"
 
 #define WARN_QUEUE 100
@@ -2532,6 +2533,9 @@ struct hwsim_new_radio_params {
 	u32 iftypes;
 	u32 *ciphers;
 	u8 n_ciphers;
+#ifdef CONFIG_KCOV
+	u64 kcov_handle;
+#endif
 };
 
 static void hwsim_mcast_config_msg(struct sk_buff *mcast_skb,
@@ -3195,6 +3199,10 @@ static int mac80211_hwsim_new_radio(struct genl_info *info,
 		regulatory_hint(hw->wiphy, param->reg_alpha2);
 	}
 
+#ifdef CONFIG_KCOV
+	hw->kcov_handle = param->kcov_handle;
+#endif
+
 	data->debugfs = debugfs_create_dir("hwsim", hw->wiphy->debugfsdir);
 	debugfs_create_file("ps", 0666, data->debugfs, data, &hwsim_fops_ps);
 	debugfs_create_file("group", 0666, data->debugfs, data,
@@ -3740,6 +3748,10 @@ static int hwsim_new_radio_nl(struct sk_buff *msg, struct genl_info *info)
 			return -ENOMEM;
 		param.hwname = hwname;
 	}
+
+#ifdef CONFIG_KCOV
+	param.kcov_handle = kcov_common_handle();
+#endif
 
 	ret = mac80211_hwsim_new_radio(info, &param);
 	kfree(hwname);
