@@ -140,6 +140,8 @@ enum {
  * @HWSIM_ATTR_PERM_ADDR: permanent mac address of new radio
  * @HWSIM_ATTR_IFTYPE_SUPPORT: u32 attribute of supported interface types bits
  * @HWSIM_ATTR_CIPHER_SUPPORT: u32 array of supported cipher types
+ * @HWSIM_ATTR_DIRECT_MAC_ACCESS: flag that determines whether injected frames
+ *  and tx statuses are queued and processed in background or executed directly
  * @__HWSIM_ATTR_MAX: enum limit
  */
 
@@ -170,6 +172,7 @@ enum {
 	HWSIM_ATTR_PERM_ADDR,
 	HWSIM_ATTR_IFTYPE_SUPPORT,
 	HWSIM_ATTR_CIPHER_SUPPORT,
+	HWSIM_ATTR_DIRECT_MAC_ACCESS,
 	__HWSIM_ATTR_MAX,
 };
 #define HWSIM_ATTR_MAX (__HWSIM_ATTR_MAX - 1)

@@ -519,6 +519,9 @@ struct mac80211_hwsim_data {
 	u32 portid;
 	char alpha2[2];
 	const struct ieee80211_regdomain *regd;
+	bool direct_mac_access;
+	/* TODO: check whether we actually need this econd mutex */
+	struct mutex mac_access_mutex;
 
 	struct ieee80211_channel *tmp_chan;
 	struct ieee80211_channel *roc_chan;
@@ -1327,6 +1330,17 @@ static void mac80211_hwsim_add_vendor_rtap(struct sk_buff *skb)
 #endif
 }
 
+static void __mac80211_hwsim_do_tx(struct mac80211_hwsim_data *data,
+					  struct sk_buff *skb) {
+	if (data->direct_mac_access) {
+		mutex_lock(&data->mac_access_mutex);
+		ieee80211_rx(data->hw, skb);
+		mutex_unlock(&data->mac_access_mutex);
+	} else {
+		ieee80211_rx_irqsafe(data->hw, skb);
+	}
+}
+
 static bool mac80211_hwsim_tx_frame_no_nl(struct ieee80211_hw *hw,
 					  struct sk_buff *skb,
 					  struct ieee80211_channel *chan)
@@ -1459,7 +1473,7 @@ static bool mac80211_hwsim_tx_frame_no_nl(struct ieee80211_hw *hw,
 
 		data2->rx_pkts++;
 		data2->rx_bytes += nskb->len;
-		ieee80211_rx_irqsafe(data2->hw, nskb);
+		__mac80211_hwsim_do_tx(data2, nskb);
 	}
 	spin_unlock(&hwsim_radio_lock);
 
@@ -1556,7 +1570,14 @@ static void mac80211_hwsim_tx(struct ieee80211_hw *hw,
 
 	if (!(txi->flags & IEEE80211_TX_CTL_NO_ACK) && ack)
 		txi->flags |= IEEE80211_TX_STAT_ACK;
-	ieee80211_tx_status_irqsafe(hw, skb);
+
+	if (data->direct_mac_access) {
+		mutex_lock(&data->mac_access_mutex);
+		ieee80211_tx_status(hw, skb);
+		mutex_unlock(&data->mac_access_mutex);
+	} else {
+		ieee80211_tx_status_irqsafe(hw, skb);
+	}
 }
 
 
@@ -2518,6 +2539,7 @@ static const struct ieee80211_ops mac80211_hwsim_mchan_ops = {
 	.unassign_vif_chanctx = mac80211_hwsim_unassign_vif_chanctx,
 };
 
+
 struct hwsim_new_radio_params {
 	unsigned int channels;
 	const char *reg_alpha2;
@@ -2532,6 +2554,7 @@ struct hwsim_new_radio_params {
 	u32 iftypes;
 	u32 *ciphers;
 	u8 n_ciphers;
+	bool direct_mac_access;
 };
 
 static void hwsim_mcast_config_msg(struct sk_buff *mcast_skb,
@@ -2949,6 +2972,9 @@ static int mac80211_hwsim_new_radio(struct genl_info *info,
 	data->use_chanctx = param->use_chanctx;
 	data->idx = idx;
 	data->destroy_on_close = param->destroy_on_close;
+	data->direct_mac_access = param->direct_mac_access;
+	if (data->direct_mac_access)
+		mutex_init(&data->mac_access_mutex);
 	if (info)
 		data->portid = info->snd_portid;
 
@@ -3557,8 +3583,7 @@ static int hwsim_cloned_frame_received_nl(struct sk_buff *skb_2,
 	memcpy(IEEE80211_SKB_RXCB(skb), &rx_status, sizeof(rx_status));
 	data2->rx_pkts++;
 	data2->rx_bytes += skb->len;
-	ieee80211_rx_irqsafe(data2->hw, skb);
-
+	__mac80211_hwsim_do_tx(data2, skb);
 	return 0;
 err:
 	pr_debug("mac80211_hwsim: error occurred in %s\n", __func__);
@@ -3739,6 +3764,11 @@ static int hwsim_new_radio_nl(struct sk_buff *msg, struct genl_info *info)
 		if (!hwname)
 			return -ENOMEM;
 		param.hwname = hwname;
+	}
+
+	/* With a temporary hack to simplify testing */
+	if (info->attrs[HWSIM_ATTR_DIRECT_MAC_ACCESS] || true) {
+		param.direct_mac_access = true;
 	}
 
 	ret = mac80211_hwsim_new_radio(info, &param);
