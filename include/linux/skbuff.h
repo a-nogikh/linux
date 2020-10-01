@@ -904,6 +904,11 @@ struct sk_buff {
 	__u16			network_header;
 	__u16			mac_header;
 
+	/* TODO: not sure if it should be in headers that are copied */
+#ifdef CONFIG_KCOV
+	u64 kcov_handle;
+#endif
+
 	/* private: */
 	__u32			headers_end[0];
 	/* public: */

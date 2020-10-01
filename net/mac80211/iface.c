@@ -1322,6 +1322,12 @@ static void ieee80211_iface_work(struct work_struct *work)
 	/* first process frames */
 	while ((skb = skb_dequeue(&sdata->skb_queue))) {
 		struct ieee80211_mgmt *mgmt = (void *)skb->data;
+		int kcov_handle = 0;
+#ifdef CONFIG_KCOV
+		kcov_handle = skb->kcov_handle;
+#endif
+		if (kcov_handle)
+			kcov_remote_start_common(kcov_handle);
 
 		if (ieee80211_is_action(mgmt->frame_control) &&
 		    mgmt->u.action.category == WLAN_CATEGORY_BACK) {
@@ -1426,6 +1432,8 @@ static void ieee80211_iface_work(struct work_struct *work)
 			break;
 		}
 
+		if (kcov_handle)
+			kcov_remote_stop();
 		kfree_skb(skb);
 	}
 
