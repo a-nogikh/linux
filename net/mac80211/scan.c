@@ -1002,6 +1002,12 @@ void ieee80211_scan_work(struct work_struct *work)
 	struct cfg80211_scan_request *scan_req;
 	unsigned long next_delay = 0;
 	bool aborted;
+	u64 kcov_handle = 0;
+
+#ifdef CONFIG_KCOV
+	kcov_handle = local->hw.kcov_handle;
+#endif
+	kcov_remote_start_common(kcov_handle);
 
 	mutex_lock(&local->mtx);
 
@@ -1089,6 +1095,7 @@ out_complete:
 	__ieee80211_scan_completed(&local->hw, aborted);
 out:
 	mutex_unlock(&local->mtx);
+	kcov_remote_stop();
 }
 
 int ieee80211_request_scan(struct ieee80211_sub_if_data *sdata,

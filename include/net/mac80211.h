@@ -2506,6 +2506,9 @@ enum ieee80211_hw_flags {
  *	refilling deficit of each TXQ.
  *
  * @max_mtu: the max mtu could be set.
+ *
+ * @kcov_handle: KCOV remote handle of a thread that created this hardware.
+ *
  */
 struct ieee80211_hw {
 	struct ieee80211_conf conf;
@@ -2544,6 +2547,9 @@ struct ieee80211_hw {
 	u8 tx_sk_pacing_shift;
 	u8 weight_multiplier;
 	u32 max_mtu;
+#ifdef CONFIG_KCOV
+	u64 kcov_handle;
+#endif
 };
 
 static inline bool _ieee80211_hw_check(struct ieee80211_hw *hw,

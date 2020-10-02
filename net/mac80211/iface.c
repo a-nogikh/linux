@@ -1302,6 +1302,7 @@ static void ieee80211_iface_work(struct work_struct *work)
 	struct ieee80211_local *local = sdata->local;
 	struct sk_buff *skb;
 	struct sta_info *sta;
+	u64 kcov_handle;
 
 	if (!ieee80211_sdata_running(sdata))
 		return;
@@ -1315,7 +1316,7 @@ static void ieee80211_iface_work(struct work_struct *work)
 	/* first process frames */
 	while ((skb = skb_dequeue(&sdata->skb_queue))) {
 		struct ieee80211_mgmt *mgmt = (void *)skb->data;
-	    u64 kcov_handle = 0;
+	    kcov_handle = 0;
 #ifdef CONFIG_KCOV
 		kcov_handle = skb->kcov_handle;
 #endif
@@ -1429,6 +1430,11 @@ static void ieee80211_iface_work(struct work_struct *work)
 	}
 
 	/* then other type-dependent work */
+	kcov_handle = 0;
+#ifdef CONFIG_KCOV
+	kcov_handle = local->hw.kcov_handle;
+#endif
+	kcov_remote_start_common(kcov_handle);
 	switch (sdata->vif.type) {
 	case NL80211_IFTYPE_STATION:
 		ieee80211_sta_work(sdata);
@@ -1447,6 +1453,7 @@ static void ieee80211_iface_work(struct work_struct *work)
 	default:
 		break;
 	}
+	kcov_remote_stop();
 }
 
 static void ieee80211_recalc_smps_work(struct work_struct *work)
