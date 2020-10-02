@@ -233,6 +233,9 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
 	skb->end = skb->tail + size;
 	skb->mac_header = (typeof(skb->mac_header))~0U;
 	skb->transport_header = (typeof(skb->transport_header))~0U;
+#ifdef CONFIG_KCOV
+	skb->kcov_handle = kcov_common_handle();
+#endif
 
 	/* make sure we initialize shinfo sequentially */
 	shinfo = skb_shinfo(skb);
