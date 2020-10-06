@@ -2509,6 +2509,10 @@ enum ieee80211_hw_flags {
  *	refilling deficit of each TXQ.
  *
  * @max_mtu: the max mtu could be set.
+ *
+ * @kcov_handle: KCOV remote handle that is used to collect coverage of the code
+ *	that performs operations with this hardware.
+ *
  */
 struct ieee80211_hw {
 	struct ieee80211_conf conf;
@@ -2547,6 +2551,9 @@ struct ieee80211_hw {
 	u8 tx_sk_pacing_shift;
 	u8 weight_multiplier;
 	u32 max_mtu;
+#ifdef CONFIG_KCOV
+	u64 kcov_handle;
+#endif
 };
 
 static inline bool _ieee80211_hw_check(struct ieee80211_hw *hw,
@@ -2562,6 +2569,23 @@ static inline void _ieee80211_hw_set(struct ieee80211_hw *hw,
 	return __set_bit(flg, hw->flags);
 }
 #define ieee80211_hw_set(hw, flg)	_ieee80211_hw_set(hw, IEEE80211_HW_##flg)
+
+static inline void ieee80211_hw_set_kcov_handle(struct ieee80211_hw *hw,
+				     u64 kcov_handle)
+{
+#ifdef CONFIG_KCOV
+	hw->kcov_handle = kcov_handle;
+#endif
+}
+
+static inline u64 ieee80211_hw_get_kcov_handle(struct ieee80211_hw *hw)
+{
+#ifdef CONFIG_KCOV
+	return hw->kcov_handle;
+#else
+	return 0;
+#endif
+}
 
 /**
  * struct ieee80211_scan_request - hw scan request

@@ -3656,6 +3656,8 @@ void ieee80211_dfs_radar_detected_work(struct work_struct *work)
 	struct ieee80211_chanctx *ctx;
 	int num_chanctx = 0;
 
+	kcov_remote_start_common(ieee80211_hw_get_kcov_handle(&local->hw));
+
 	mutex_lock(&local->chanctx_mtx);
 	list_for_each_entry(ctx, &local->chanctx_list, list) {
 		if (ctx->replace_state == IEEE80211_CHANCTX_REPLACES_OTHER)
@@ -3675,6 +3677,8 @@ void ieee80211_dfs_radar_detected_work(struct work_struct *work)
 		WARN_ON(1);
 	else
 		cfg80211_radar_event(local->hw.wiphy, &chandef, GFP_KERNEL);
+
+	kcov_remote_stop();
 }
 
 void ieee80211_radar_detected(struct ieee80211_hw *hw)

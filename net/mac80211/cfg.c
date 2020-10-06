@@ -3137,6 +3137,8 @@ void ieee80211_csa_finalize_work(struct work_struct *work)
 	mutex_lock(&local->mtx);
 	mutex_lock(&local->chanctx_mtx);
 
+	kcov_remote_start_common(ieee80211_hw_get_kcov_handle(&local->hw));
+
 	/* AP might have been stopped while waiting for the lock. */
 	if (!sdata->vif.csa_active)
 		goto unlock;
@@ -3147,6 +3149,7 @@ void ieee80211_csa_finalize_work(struct work_struct *work)
 	ieee80211_csa_finalize(sdata);
 
 unlock:
+	kcov_remote_stop();
 	mutex_unlock(&local->chanctx_mtx);
 	mutex_unlock(&local->mtx);
 	sdata_unlock(sdata);

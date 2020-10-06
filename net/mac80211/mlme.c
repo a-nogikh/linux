@@ -1144,6 +1144,8 @@ static void ieee80211_chswitch_work(struct work_struct *work)
 	mutex_lock(&local->mtx);
 	mutex_lock(&local->chanctx_mtx);
 
+	kcov_remote_start_common(ieee80211_hw_get_kcov_handle(&local->hw));
+
 	if (!ifmgd->associated)
 		goto out;
 
@@ -1247,6 +1249,7 @@ static void ieee80211_chswitch_work(struct work_struct *work)
 	ieee80211_sta_reset_conn_monitor(sdata);
 
 out:
+	kcov_remote_stop();
 	mutex_unlock(&local->chanctx_mtx);
 	mutex_unlock(&local->mtx);
 	sdata_unlock(sdata);

@@ -3176,6 +3176,8 @@ static int mac80211_hwsim_new_radio(struct genl_info *info,
 
 	wiphy_ext_feature_set(hw->wiphy, NL80211_EXT_FEATURE_CQM_RSSI_LIST);
 
+	ieee80211_hw_set_kcov_handle(hw, kcov_common_handle());
+
 	hrtimer_init(&data->beacon_timer, CLOCK_MONOTONIC,
 		     HRTIMER_MODE_ABS_SOFT);
 	data->beacon_timer.function = mac80211_hwsim_beacon;

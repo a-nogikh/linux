@@ -1432,6 +1432,7 @@ static void ieee80211_iface_work(struct work_struct *work)
 	}
 
 	/* then other type-dependent work */
+	kcov_remote_start_common(ieee80211_hw_get_kcov_handle(&local->hw));
 	switch (sdata->vif.type) {
 	case NL80211_IFTYPE_STATION:
 		ieee80211_sta_work(sdata);
@@ -1450,6 +1451,7 @@ static void ieee80211_iface_work(struct work_struct *work)
 	default:
 		break;
 	}
+	kcov_remote_stop();
 }
 
 static void ieee80211_recalc_smps_work(struct work_struct *work)
