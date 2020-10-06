@@ -4432,7 +4432,9 @@ void ieee80211_rx_napi(struct ieee80211_hw *hw, struct ieee80211_sta *sta,
  */
 static inline void ieee80211_rx(struct ieee80211_hw *hw, struct sk_buff *skb)
 {
+	kcov_remote_start_common(skb_get_kcov_handle(skb));
 	ieee80211_rx_napi(hw, NULL, skb, NULL);
+	kcov_remote_stop();
 }
 
 /**
