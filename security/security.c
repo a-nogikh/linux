@@ -705,7 +705,25 @@ static void __init lsm_early_task(struct task_struct *task)
 			P->hook.FUNC(__VA_ARGS__);		\
 	} while (0)
 
+#ifdef FAIL_FUNCTION
+static noinline int should_fail_lsm_hook() {
+	return 0;
+}
+
+ALLOW_ERROR_INJECTION(should_fail_lsm_hook, ERRNO);
+
+#define fail_int_hook() {			 \
+	int RC = should_fail_lsm_hook(); \
+	if (RC < 0)						 \
+		return RC;					 \
+}
+
+#else
+#define fail_int_hook()
+#endif
+
 #define call_int_hook(FUNC, IRC, ...) ({			\
+	fail_int_hook();						\
 	int RC = IRC;						\
 	do {							\
 		struct security_hook_list *P;			\
