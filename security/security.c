@@ -27,6 +27,7 @@
 #include <linux/backing-dev.h>
 #include <linux/string.h>
 #include <linux/msg.h>
+#include <linux/fault-inject.h>
 #include <net/flow.h>
 
 #define MAX_LSM_EVM_XATTR	2
@@ -668,6 +669,67 @@ static void __init lsm_early_task(struct task_struct *task)
 		panic("%s: Early task alloc failed.\n", __func__);
 }
 
+
+#ifdef CONFIG_FAIL_LSM_HOOKS
+
+static struct {
+	struct fault_attr attr;
+	int retval;
+} fail_lsm_hooks = {
+	.attr = FAULT_ATTR_INITIALIZER,
+	.retval = -EACCES
+};
+
+static int __init setup_fail_lsm_hooks(char *str)
+{
+	return setup_fault_attr(&fail_lsm_hooks.attr, str);
+}
+__setup("fail_lsm_hooks=", setup_fail_lsm_hooks);
+
+static int lsm_hooks_inject_fail(void)
+{
+	return should_fail(&fail_lsm_hooks.attr, 1) ? fail_lsm_hooks.retval : 0;
+}
+
+#ifdef CONFIG_FAULT_INJECTION_DEBUG_FS
+
+static int fail_lsm_retval_set(void *data, u64 val)
+{
+	fail_lsm_hooks.retval = (int)val;
+	return 0;
+}
+
+static int fail_lsm_retval_get(void *data, u64 *val)
+{
+	*val = (u64)fail_lsm_hooks.retval;
+	return 0;
+}
+
+DEFINE_DEBUGFS_ATTRIBUTE(fail_lsm_retval_ops, fail_lsm_retval_get,
+						 fail_lsm_retval_set, "%lld\n");
+
+static int __init fail_lsm_hooks_debugfs(void)
+{
+	umode_t mode = S_IFREG | 0600;
+	struct dentry *dir;
+
+	dir = fault_create_debugfs_attr("fail_lsm_hooks", NULL,
+					&fail_lsm_hooks.attr);
+	debugfs_create_file("retval", mode, dir, NULL,
+						&fail_lsm_retval_ops);
+	return 0;
+}
+
+late_initcall(fail_lsm_hooks_debugfs);
+
+#endif /* CONFIG_FAULT_INJECTION_DEBUG_FS */
+
+#else
+
+static inline int lsm_hooks_inject_fail(void) { return 0; }
+
+#endif /* CONFIG_FAIL_LSM_HOOKS */
+
 /*
  * The default value of the LSM hook is defined in linux/lsm_hook_defs.h and
  * can be accessed with:
@@ -706,16 +768,17 @@ static void __init lsm_early_task(struct task_struct *task)
 	} while (0)
 
 #define call_int_hook(FUNC, IRC, ...) ({			\
-	int RC = IRC;						\
-	do {							\
+	int RC = lsm_hooks_inject_fail();			\
+	if (RC == 0) {								\
 		struct security_hook_list *P;			\
+		RC = IRC;								\
 								\
 		hlist_for_each_entry(P, &security_hook_heads.FUNC, list) { \
 			RC = P->hook.FUNC(__VA_ARGS__);		\
 			if (RC != 0)				\
 				break;				\
 		}						\
-	} while (0);						\
+	}							\
 	RC;							\
 })
 

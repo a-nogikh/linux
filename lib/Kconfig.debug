@@ -1774,6 +1774,12 @@ config FAIL_MAKE_REQUEST
 	help
 	  Provide fault-injection capability for disk IO.
 
+config FAIL_LSM_HOOKS
+	bool "Fault-injection capability for LSM hooks"
+	depends on FAULT_INJECTION && SECURITY
+	help
+	  Provide fault-injection capability for LSM hooks.
+
 config FAIL_IO_TIMEOUT
 	bool "Fault-injection capability for faking disk interrupts"
 	depends on FAULT_INJECTION && BLOCK
