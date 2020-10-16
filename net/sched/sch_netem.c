@@ -315,7 +315,7 @@ static bool loss_event(struct netem_sched_data *q)
  * std deviation sigma.  Uses table lookup to approximate the desired
  * distribution, and a uniformly-distributed pseudo-random source.
  */
-static s64 tabledist(s64 mu, s32 sigma,
+static s64 tabledist(s64 mu, u32 sigma,
 		     struct crndstate *state,
 		     const struct disttable *dist)
 {
@@ -329,8 +329,14 @@ static s64 tabledist(s64 mu, s32 sigma,
 	rnd = get_crandom(state);
 
 	/* default uniform distribution */
-	if (dist == NULL)
+	if (dist == NULL) {
+		/* Sigma is too big to perform 32 bit division.
+		 * Use the widest possible deviation.
+		 */
+		if ((u64)sigma * 2ULL >= U32_MAX)
+			return mu + rnd - U32_MAX / 2;
 		return ((rnd % (2 * sigma)) + mu) - sigma;
+	}
 
 	t = dist->table[rnd % dist->size];
 	x = (sigma % NETEM_DIST_SCALE) * t;
@@ -533,7 +539,9 @@ static int netem_enqueue(struct sk_buff *skb, struct Qdisc *sch,
 		u64 now;
 		s64 delay;
 
-		delay = tabledist(q->latency, q->jitter,
+		/* tabledist is unable to handle 64 bit jitters yet, so we adjust it beforehand */
+		u32 constrained_jitter = q->jitter > 0 ? min((u32)q->jitter, U32_MAX) : 0;
+		delay = tabledist(q->latency, constrained_jitter,
 				  &q->delay_cor, q->delay_dist);
 
 		now = ktime_get_ns();
