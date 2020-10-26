@@ -140,7 +140,7 @@
 static int copyout(void __user *to, const void *from, size_t n)
 {
 	if (access_ok(to, n)) {
-		instrument_copy_to_user(to, from, n);
+		instrument_copy_to_user(to, from, n, TASK_SIZE);
 		n = raw_copy_to_user(to, from, n);
 	}
 	return n;
@@ -149,7 +149,7 @@ static int copyout(void __user *to, const void *from, size_t n)
 static int copyin(void *to, const void __user *from, size_t n)
 {
 	if (access_ok(from, n)) {
-		instrument_copy_from_user(to, from, n);
+		instrument_copy_from_user(to, from, n, TASK_SIZE);
 		n = raw_copy_from_user(to, from, n);
 	}
 	return n;
@@ -641,7 +641,7 @@ EXPORT_SYMBOL(_copy_to_iter);
 static int copyout_mcsafe(void __user *to, const void *from, size_t n)
 {
 	if (access_ok(to, n)) {
-		instrument_copy_to_user(to, from, n);
+		instrument_copy_to_user(to, from, n, TASK_SIZE);
 		n = copy_to_user_mcsafe((__force void *) to, from, n);
 	}
 	return n;

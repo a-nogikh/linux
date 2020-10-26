@@ -77,16 +77,22 @@ static __always_inline void instrument_atomic_write(const volatile void *v, size
  *
  * Instrument reads from kernel memory, that are due to copy_to_user (and
  * variants). The instrumentation must be inserted before the accesses.
+ * If destination above kernel_mem_start, the method will also check it.
+ * This may happen e.g. during compat syscall processing.
  *
  * @to destination address
  * @from source address
  * @n number of bytes to copy
+ * @kernel_mem_start the adress at which the kernel memory begins
  */
 static __always_inline void
-instrument_copy_to_user(void __user *to, const void *from, unsigned long n)
+instrument_copy_to_user(void __user *to, const void *from, unsigned long n,
+						const unsigned long long kernel_mem_start)
 {
 	kasan_check_read(from, n);
 	kcsan_check_read(from, n);
+	if ((unsigned long long)to >= kernel_mem_start)
+		kasan_check_write(to, n);
 }
 
 /**
@@ -98,12 +104,16 @@ instrument_copy_to_user(void __user *to, const void *from, unsigned long n)
  * @to destination address
  * @from source address
  * @n number of bytes to copy
+ * @kernel_mem_start the adress at which the kernel memory begins
  */
 static __always_inline void
-instrument_copy_from_user(const void *to, const void __user *from, unsigned long n)
+instrument_copy_from_user(const void *to, const void __user *from, unsigned long n,
+						  const unsigned long long kernel_mem_start)
 {
 	kasan_check_write(to, n);
 	kcsan_check_write(to, n);
+	if ((unsigned long long)from >= kernel_mem_start)
+		kasan_check_read(from, n);
 }
 
 #endif /* _LINUX_INSTRUMENTED_H */
