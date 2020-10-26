@@ -44,6 +44,12 @@ Available fault injection capabilities
   status code is NVME_SC_INVALID_OPCODE with no retry. The status code and
   retry flag can be set via the debugfs.
 
+- fail_lsm_hooks
+
+  injects failures into LSM hooks. When a fault is injected, actual hooks
+  are not executed and a code from /sys/kernel/debug/fail_lsm_hooks/retval
+  is returned (the default value is -EACCES).
+
 
 Configure fault-injection capabilities behavior
 -----------------------------------------------
