@@ -31,6 +31,8 @@
 #include <linux/stackdepot.h>
 #include <linux/string.h>
 #include <linux/types.h>
+#include <linux/debugfs.h>
+#include <linux/module.h>
 
 #define DEPOT_STACK_BITS (sizeof(depot_stack_handle_t) * 8)
 
@@ -61,6 +63,7 @@ struct stack_record {
 	struct stack_record *next;	/* Link in the hashtable */
 	u32 hash;			/* Hash in the hastable */
 	u32 size;			/* Number of frames in the stack */
+	u32 dedup_cnt;
 	union handle_parts handle;
 	unsigned long entries[1];	/* Variable-sized array of entries. */
 };
@@ -131,6 +134,7 @@ static struct stack_record *depot_alloc_stack(unsigned long *entries, int size,
 
 	stack = stack_slabs[depot_index] + depot_offset;
 
+	stack->dedup_cnt = 1;
 	stack->hash = hash;
 	stack->size = size;
 	stack->handle.slabindex = depot_index;
@@ -256,8 +260,10 @@ depot_stack_handle_t stack_depot_save(unsigned long *entries,
 	 */
 	found = find_stack(smp_load_acquire(bucket), entries,
 			   nr_entries, hash);
-	if (found)
+	if (found) {
+	    found->dedup_cnt++; // TODO: switch to atomics?
 		goto exit;
+	}
 
 	/*
 	 * Check if the current or the next stack slab need to be initialized.
@@ -284,6 +290,9 @@ depot_stack_handle_t stack_depot_save(unsigned long *entries,
 	spin_lock_irqsave(&depot_lock, flags);
 
 	found = find_stack(*bucket, entries, nr_entries, hash);
+	if (found)
+		found->dedup_cnt++; // TODO: switch to atomics?
+
 	if (!found) {
 		struct stack_record *new =
 			depot_alloc_stack(entries, nr_entries,
@@ -340,3 +349,45 @@ unsigned int filter_irq_stacks(unsigned long *entries,
 	return nr_entries;
 }
 EXPORT_SYMBOL_GPL(filter_irq_stacks);
+
+#define STACKDEPOT_DEBUG_ARR_SIZE 300000
+static struct debugfs_u32_array  debug_array;
+static u32 debugfs_arr_raw[STACKDEPOT_DEBUG_ARR_SIZE];
+
+static int reload_stackdepot(void *data, u64 value)
+{
+	int arr_pos = 0, i;
+	for (i = 0; i < STACK_HASH_SIZE; i++) {
+		struct stack_record *head = stack_table[i];
+		while (head != NULL && arr_pos < STACKDEPOT_DEBUG_ARR_SIZE) {
+			if (head->dedup_cnt >= value)
+				debugfs_arr_raw[arr_pos++] = head->dedup_cnt;
+			head = head->next;
+		}
+	}
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(reload_stackdepot_ops, NULL, reload_stackdepot, "%llu\n");
+
+static int __init init_stackdepot_debugfs(void)
+{
+	struct dentry *parent;
+	int i;
+
+	for (i = 0; i < STACKDEPOT_DEBUG_ARR_SIZE; i++)
+		debugfs_arr_raw[i] = 0;
+
+	debug_array.array = (u32*)(&debugfs_arr_raw);
+	debug_array.n_elements = STACKDEPOT_DEBUG_ARR_SIZE;
+	parent = debugfs_create_dir("stackdepot_debug", NULL);
+	if (!parent) {
+        printk(KERN_WARNING "init_stackdepot_debugfs: failed to execute debugfs_create_dir\n");
+        return -1;
+    }
+
+	debugfs_create_u32_array("view", 0666, parent, &debug_array);
+	debugfs_create_file("reload", 0777, parent, NULL, &reload_stackdepot_ops);
+	return 0;
+}
+module_init(init_stackdepot_debugfs);
