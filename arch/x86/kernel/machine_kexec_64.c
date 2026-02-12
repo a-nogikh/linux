@@ -310,18 +310,6 @@ static int init_pgtable(struct kimage *image, unsigned long control_page)
 	return init_transition_pgtable(image, image->arch.pgd, control_page);
 }
 
-static void load_segments(void)
-{
-	__asm__ __volatile__ (
-		"\tmovl %0,%%ds\n"
-		"\tmovl %0,%%es\n"
-		"\tmovl %0,%%ss\n"
-		"\tmovl %0,%%fs\n"
-		"\tmovl %0,%%gs\n"
-		: : "a" (__KERNEL_DS) : "memory"
-		);
-}
-
 static void prepare_debug_idt(unsigned long control_page, unsigned long vec_ofs)
 {
 	gate_desc idtentry = { 0 };
@@ -443,30 +431,12 @@ void __nocfi machine_kexec(struct kimage *image)
 		relocate_kernel_flags |= RELOC_KERNEL_PRESERVE_CONTEXT;
 
 	/*
-	 * This must be done before load_segments() since it resets
-	 * GS to 0 and percpu data needs the correct GS to work.
+	 * This must be done before segments are loaded in relocate_kernel
+	 * since it resets GS to 0 and percpu data needs the correct GS to work.
 	 */
 	if (this_cpu_read(cache_state_incoherent))
 		relocate_kernel_flags |= RELOC_KERNEL_CACHE_INCOHERENT;
 
-	/*
-	 * The segment registers are funny things, they have both a
-	 * visible and an invisible part.  Whenever the visible part is
-	 * set to a specific selector, the invisible part is loaded
-	 * with from a table in memory.  At no other time is the
-	 * descriptor table in memory accessed.
-	 *
-	 * Take advantage of this here by force loading the segments,
-	 * before the GDT is zapped with an invalid value.
-	 *
-	 * load_segments() resets GS to 0.  Don't make any function call
-	 * after here since call depth tracking uses percpu variables to
-	 * operate (relocate_kernel() is explicitly ignored by call depth
-	 * tracking).
-	 */
-	load_segments();
-
-	/* now call it */
 	image->start = relocate_kernel_ptr((unsigned long)image->head,
 					   virt_to_phys(control_page),
 					   image->start,
