@@ -23,23 +23,6 @@
 #include <asm/set_memory.h>
 #include <asm/debugreg.h>
 
-static void load_segments(void)
-{
-#define __STR(X) #X
-#define STR(X) __STR(X)
-
-	__asm__ __volatile__ (
-		"\tljmp $"STR(__KERNEL_CS)",$1f\n"
-		"\t1:\n"
-		"\tmovl $"STR(__KERNEL_DS)",%%eax\n"
-		"\tmovl %%eax,%%ds\n"
-		"\tmovl %%eax,%%es\n"
-		"\tmovl %%eax,%%ss\n"
-		: : : "eax", "memory");
-#undef STR
-#undef __STR
-}
-
 static void machine_kexec_free_page_tables(struct kimage *image)
 {
 	free_pages((unsigned long)image->arch.pgd, pgd_allocation_order());
@@ -202,22 +185,9 @@ void machine_kexec(struct kimage *image)
 						<< PAGE_SHIFT);
 
 	/*
-	 * The segment registers are funny things, they have both a
-	 * visible and an invisible part.  Whenever the visible part is
-	 * set to a specific selector, the invisible part is loaded
-	 * with from a table in memory.  At no other time is the
-	 * descriptor table in memory accessed.
-	 *
-	 * I take advantage of this here by force loading the
-	 * segments, before I zap the gdt with an invalid value.
-	 */
-	load_segments();
-	/*
-	 * The gdt & idt are now invalid.
-	 * If you want to load them you must set up your own idt & gdt.
+	 * The gdt is invalidated in relocate_kernel().
 	 */
 	native_idt_invalidate();
-	native_gdt_invalidate();
 
 	/* now call it */
 	image->start = relocate_kernel_ptr((unsigned long)image->head,

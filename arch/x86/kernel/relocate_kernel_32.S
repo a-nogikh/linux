@@ -9,6 +9,7 @@
 #include <asm/kexec.h>
 #include <asm/nospec-branch.h>
 #include <asm/processor-flags.h>
+#include <asm/segment.h>
 
 /*
  * Must be relocatable PIC code callable as a C function, in particular
@@ -66,6 +67,37 @@ SYM_CODE_START_NOALIGN(relocate_kernel)
 	/* zero out flags, and disable interrupts */
 	pushl $0
 	popfl
+
+	/*
+	 * The segment registers are funny things, they have both a
+	 * visible and an invisible part.  Whenever the visible part is
+	 * set to a specific selector, the invisible part is loaded
+	 * with from a table in memory.  At no other time is the
+	 * descriptor table in memory accessed.
+	 *
+	 * This must be done before switching to the identity mapped page
+	 * tables, because the new page tables might not map the current
+	 * segment table.
+	 *
+	 * Also, we must load the segments before the GDT is zapped, and
+	 * we must zap the GDT before jumping to the identity mapped page.
+	 */
+	ljmp	$__KERNEL_CS, $1f
+1:
+	movl	$__KERNEL_DS, %eax
+	movl	%eax, %ds
+	movl	%eax, %es
+	movl	%eax, %ss
+
+	/*
+	 * The gdt & idt are now invalid.
+	 * If you want to load them you must set up your own idt & gdt.
+	 */
+	subl	$6, %esp
+	movw	$0, (%esp)
+	movl	$0, 2(%esp)
+	lgdt	(%esp)
+	addl	$6, %esp
 
 	/* save some information for jumping back */
 	movl	PTR(VA_CONTROL_PAGE)(%ebp), %edi

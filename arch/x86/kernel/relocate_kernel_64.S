@@ -14,6 +14,7 @@
 #include <asm/nospec-branch.h>
 #include <asm/unwind_hints.h>
 #include <asm/asm-offsets.h>
+#include <asm/segment.h>
 
 /*
  * Must be relocatable PIC code callable as a C function, in particular
@@ -78,6 +79,27 @@ SYM_CODE_START_NOALIGN(relocate_kernel)
 	pushq %r15
 	pushf
 
+	/*
+	 * The segment registers are funny things, they have both a
+	 * visible and an invisible part.  Whenever the visible part is
+	 * set to a specific selector, the invisible part is loaded
+	 * with from a table in memory.  At no other time is the
+	 * descriptor table in memory accessed.
+	 *
+	 * This must be done before switching to the identity mapped page
+	 * tables, because the new page tables might not map the current
+	 * segment table.
+	 *
+	 * Also, we must load the segments before the GDT is zapped, and
+	 * we must zap the GDT before jumping to the identity mapped page.
+	 */
+	movl	$__KERNEL_DS, %eax
+	movl	%eax, %ds
+	movl	%eax, %es
+	movl	%eax, %ss
+	movl	%eax, %fs
+	movl	%eax, %gs
+
 	/* Invalidate GDT/IDT, zero out flags */
 	pushq	$0
 	pushq	$0
@@ -86,6 +108,8 @@ SYM_CODE_START_NOALIGN(relocate_kernel)
 	lgdt	(%rsp)
 	addq	$8, %rsp
 	popfq
+
+
 
 	/* Switch to the identity mapped page tables */
 	movq	%cr3, %rax
