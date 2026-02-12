@@ -126,7 +126,7 @@ extern int valid_mmap_phys_addr_range(unsigned long pfn, size_t size);
  *	this function
  */
 
-static inline phys_addr_t virt_to_phys(volatile void *address)
+static noinstr inline phys_addr_t virt_to_phys(volatile void *address)
 {
 	return __pa(address);
 }
